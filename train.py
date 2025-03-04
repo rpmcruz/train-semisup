@@ -45,18 +45,18 @@ model.to(device)
 
 ############################################## METHODS ##############################################
 
-weak_transform = v2.Compose([
+weak_augment = v2.Compose([
     v2.RandomCrop((32, 32), padding=4, padding_mode='reflect'),
     v2.RandomHorizontalFlip(),
 ])
-strong_transform = v2.Compose([
+strong_augment = v2.Compose([
     v2.RandomCrop((32, 32), padding=4, padding_mode='reflect'),
     v2.RandomHorizontalFlip(),
     v2.RandAugment(2, 10),
 ])
 
 method = getattr(semisup, args.method)
-method = method(model, weak_transform, strong_transform)
+method = method(model, weak_augment, strong_augment)
 
 ############################################## TRAIN ##############################################
 
@@ -79,8 +79,8 @@ for epoch in range(args.epochs):
         sup_labels = sup_labels.to(device)
         unsup_imgs = unsup_imgs[0].to(device)
 
-        sup_loss = torch.nn.functional.cross_entropy(model(weak_transform(sup_imgs)), sup_labels)
-        unsup_loss = method(unsup_imgs)
+        sup_loss = torch.nn.functional.cross_entropy(model(weak_augment(sup_imgs)), sup_labels)
+        unsup_loss = method(epoch, unsup_imgs)
         total_loss = sup_loss + args.lmbda*unsup_loss
 
         optimizer.zero_grad()
