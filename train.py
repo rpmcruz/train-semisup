@@ -35,6 +35,7 @@ val_dataloader = torch.utils.data.DataLoader(val_dataset, args.sup_batchsize+arg
 SEED = 123
 generator = torch.Generator().manual_seed(SEED)
 train_sup_dataset, train_unsup_dataset = torch.utils.data.random_split(train_dataset, [args.num_labeled, len(train_dataset) - args.num_labeled], generator)
+marginal_distribution = torch.bincount(torch.tensor([y for _, y in train_sup_dataset]), minlength=num_classes).to(device) / len(train_sup_dataset)
 train_sup_dataloader = torch.utils.data.DataLoader(train_sup_dataset, args.sup_batchsize, True, num_workers=4, pin_memory=True)
 train_unsup_dataloader = torch.utils.data.DataLoader(train_unsup_dataset, args.unsup_batchsize, True, num_workers=4, pin_memory=True)
 
@@ -46,17 +47,17 @@ model.to(device)
 ############################################## METHODS ##############################################
 
 weak_augment = v2.Compose([
-    v2.RandomCrop((32, 32), padding=4, padding_mode='reflect'),
+    v2.RandomCrop(32, 4, padding_mode='reflect'),
     v2.RandomHorizontalFlip(),
 ])
 strong_augment = v2.Compose([
-    v2.RandomCrop((32, 32), padding=4, padding_mode='reflect'),
+    v2.RandomCrop(32, 4, padding_mode='reflect'),
     v2.RandomHorizontalFlip(),
-    v2.RandAugment(2, 10),
+    v2.RandAugment(),
 ])
 
 method = getattr(semisup, args.method)
-method = method(model, weak_augment, strong_augment)
+method = method(model, weak_augment, strong_augment, marginal_distribution)
 
 ############################################## TRAIN ##############################################
 
@@ -80,7 +81,7 @@ for epoch in range(args.epochs):
         unsup_imgs = unsup_imgs[0].to(device)
 
         sup_loss = torch.nn.functional.cross_entropy(model(weak_augment(sup_imgs)), sup_labels)
-        unsup_loss = method(epoch, unsup_imgs)
+        unsup_loss = method(epoch, sup_imgs, sup_labels, unsup_imgs)
         total_loss = sup_loss + args.lmbda*unsup_loss
 
         optimizer.zero_grad()
