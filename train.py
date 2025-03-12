@@ -108,4 +108,4 @@ for epoch in range(args.epochs):
 
 torch.optim.swa_utils.update_bn(train_sup_dataloader, ema_model, device)
 model = model if args.method == 'Supervised' else ema_model.module
-torch.save(args.output, model.cpu())
+torch.save(model.cpu(), args.output)
